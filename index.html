@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>４けたランダム数字ジェネレーター</title>
+<style>
+  :root{
+    --bg:#0b1220; --fg:#e8f0ff; --muted:#9fb0d0; --accent:#7dd3fc; --card:#111a2b;
+    --btn:#1b2540; --btn2:#0f172a; --ok:#22c55e; --warn:#f59e0b; --danger:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif; background:linear-gradient(180deg,#0a1222 0%,#060a16 100%); color:var(--fg)}
+  .wrap{max-width:1200px; margin:24px auto; padding:0 16px}
+  header{display:flex; align-items:center; gap:10px; margin-bottom:16px}
+  header h1{font-size:22px; font-weight:700; margin:0}
+
+  .grid{display:grid; grid-template-columns:1fr 360px; gap:18px}
+  @media (max-width:980px){.grid{grid-template-columns:1fr}}
+
+  .panel{background:var(--card); border:1px solid #1d2742; border-radius:16px; padding:18px; box-shadow:0 8px 30px rgba(0,0,0,.35)}
+
+  .display{height:300px; display:flex; align-items:center; justify-content:center; border-radius:16px; background:radial-gradient(1200px 300px at 50% 0%, rgba(45,212,191,.06), transparent 60%); border:1px solid #1b2746}
+  .digits{font-variant-numeric:tabular-nums; letter-spacing:.12em; font-weight:800; text-shadow:0 0 20px rgba(125,211,252,.25), 0 0 60px rgba(125,211,252,.12);}
+  .digits.visible{color:#cde7ff; font-size:96px}
+  /* 完全に見えないように（影・ぼかしも無効化） */
+  .digits.hidden{color:transparent; font-size:96px; text-shadow:none; filter:none; visibility:hidden}
+
+  .row{display:flex; flex-wrap:wrap; gap:10px; margin-top:14px}
+  button, .btn{appearance:none; border:none; color:var(--fg); background:var(--btn); padding:10px 16px; border-radius:12px; cursor:pointer; font-weight:700; box-shadow:inset 0 0 0 1px #263256}
+  button:hover{background:#22305a}
+  .primary{background:#0ea5e9; color:#031225; box-shadow:none}
+  .primary:hover{background:#38bdf8}
+  .ghost{background:transparent; box-shadow:inset 0 0 0 1px #2a355a}
+  .ok{background:#16a34a}
+  .warn{background:#d97706}
+  .danger{background:#ef4444}
+  .muted{color:var(--muted)}
+  .pill{display:inline-flex; align-items:center; gap:.5em; padding:6px 10px; border-radius:999px; background:#0e1a32; font-size:12px}
+
+  .section h2{margin:0 0 10px 0; font-size:16px; color:#cde7ff}
+  .side .section{padding:14px 12px; border:1px solid #192445; border-radius:12px; margin-bottom:12px; background:#0c152a}
+  .opt{display:flex; align-items:center; gap:10px; margin:8px 0}
+  .opt input[type="radio"], .opt input[type="checkbox"]{transform:scale(1.1)}
+  .num{width:68px; padding:8px 10px; border-radius:10px; border:1px solid #29345a; background:#0b1328; color:#e8f0ff; font-weight:700}
+  .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; background:#0a1326; border:1px solid #1a2548; padding:2px 6px; border-radius:6px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>４けたランダム数字ジェネレーター</h1>
+      <span class="pill">Space ▶ 次の数｜H 表示/非表示｜F 全画面｜R リセット</span>
+    </header>
+
+    <div class="grid">
+      <!-- LEFT: main area -->
+      <div class="panel">
+        <div class="display">
+          <div id="digits" class="digits visible" aria-live="polite">0000</div>
+        </div>
+
+        <div class="row">
+          <button id="nextBtn" class="primary">▶ 次の数</button>
+          <button id="speakBtn">🔊 読み上げ</button>
+          <button id="toggleBtn" class="ghost">👁 表示・非表示</button>
+          <button id="resetBtn" class="ghost">↺ リセット</button>
+        </div>
+        <div class="row muted" style="font-size:12px">
+          ※ ２けた・３けた・４けたから選べます。必要に応じて設定を変更してください。
+        </div>
+      </div>
+
+      <!-- RIGHT: options -->
+      <aside class="panel side">
+        <div class="section">
+          <h2>桁数</h2>
+          <label class="opt"><input type="radio" name="digits" value="2"> ２けた（10〜99）</label>
+          <label class="opt"><input type="radio" name="digits" value="3"> ３けた（100〜999）</label>
+          <label class="opt"><input type="radio" name="digits" value="4" checked> ４けた（1000〜9999）</label>
+        </div>
+
+        <div class="section">
+          <h2>ゼロの位置条件</h2>
+          <label class="opt"><input type="checkbox" id="zeroRule" checked> 一／十／百のいずれかに ０ を含む</label>
+          <p class="muted" style="font-size:12px; line-height:1.5">
+            ※ ２けたでは「一の位のみ０可（10,20,...）」、３けたでは「一・十のどちらかに０」、４けたでは「一・十・百のいずれかに０」。先頭（十・百・千）の０は作りません。
+          </p>
+        </div>
+
+        <div class="section">
+          <h2>連続モード</h2>
+          <div class="opt">間隔（秒）：<input id="intervalSec" class="num" type="number" min="1" value="2"></div>
+          <div class="row">
+            <button id="autoStart" class="ghost">▶ 自動スタート</button>
+            <button id="autoStop" class="ghost">⏹ 停止</button>
+          </div>
+          <label class="opt"><input type="checkbox" id="autoSpeak"> 自動で読み上げる</label>
+        </div>
+
+        <div class="section">
+          <h2>ショートカット</h2>
+          <div class="muted" style="font-size:12px; line-height:1.7">
+            <span class="kbd">Space</span>：次の数　｜　<span class="kbd">H</span>：表示/非表示　｜　<span class="kbd">F</span>：全画面　｜　<span class="kbd">R</span>：リセット
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const digitsEl = document.getElementById('digits');
+  const nextBtn = document.getElementById('nextBtn');
+  const speakBtn = document.getElementById('speakBtn');
+  const toggleBtn = document.getElementById('toggleBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const zeroRule = document.getElementById('zeroRule');
+  const autoStart = document.getElementById('autoStart');
+  const autoStop = document.getElementById('autoStop');
+  const autoSpeak = document.getElementById('autoSpeak');
+  const intervalSec = document.getElementById('intervalSec');
+
+  let currentDigits = 4;
+  let currentNumber = 0;
+  let hidden = false; // 表示・非表示状態は保持
+  let timer = null;
+
+  // 桁ラジオ
+  document.querySelectorAll('input[name="digits"]').forEach(r => {
+    r.addEventListener('change', () => {
+      currentDigits = Number(r.value);
+      showNew();
+    });
+  });
+
+  // 乱数生成（ゼロ位置条件を考慮）
+  function randNDigits(d){
+    const min = 10**(d-1);
+    const max = 10**d - 1;
+
+    function ok(n){
+      if(!zeroRule.checked) return true;
+      const s = String(n).padStart(d,'0');
+      const start = 1; // 先頭桁の次から
+      const end = d-1; // 最下位まで
+      for(let i=start;i<=end;i++) if(s[i]==='0') return true;
+      return false;
+    }
+
+    let n;
+    do{
+      n = Math.floor(Math.random()*(max-min+1))+min;
+    } while(!ok(n));
+    return n;
+  }
+
+  // 読み（かな）を作る
+  function numberToReading(n){
+    const ones = ['','いち','に','さん','よん','ご','ろく','なな','はち','きゅう'];
+    const tens = ['','じゅー','にじゅー','さんじゅー','よんじゅー','ごじゅー','ろくじゅー','ななじゅー','はちじゅー','きゅうじゅー'];
+    const hundreds = ['','ひゃく','にひゃく','さんびゃく','よんひゃく','ごひゃく','ろっぴゃく','ななひゃく','はっぴゃく','きゅうひゃく'];
+    const thousands = ['','せん','にせん','さんぜん','よんせん','ごせん','ろくせん','ななせん','はっせん','きゅうせん'];
+
+    const s = String(n).padStart(4,'0');
+    const a = s.split('').map(x => Number(x));
+    const th = thousands[a[0]];
+    const hu = hundreds[a[1]];
+    const te = tens[a[2]];
+    const on = ones[a[3]];
+
+    const parts = [];
+    if(th) parts.push(th);
+    if(hu) parts.push(hu);
+    if(te) parts.push(te);
+    if(on) parts.push(on);
+    if(parts.length===0) parts.push('ぜろ');
+    return parts.join(' ');
+  }
+
+  // TTS 用にカタカナへ（助詞の誤読防止）
+  function hiraToKata(str){
+    return str.replace(/[ぁ-ん]/g, ch => String.fromCharCode(ch.charCodeAt(0) + 0x60));
+  }
+
+  function speak(text){
+    // Web Speech API
+    const u = new SpeechSynthesisUtterance();
+    u.lang = 'ja-JP';
+    u.rate = 1; u.pitch = 1; u.volume = 1;
+    u.text = hiraToKata(text); // カタカナ化で助詞化を回避
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  }
+
+  function render(){
+    digitsEl.textContent = String(currentNumber).padStart(currentDigits,'0');
+    digitsEl.className = 'digits ' + (hidden? 'hidden':'visible');
+  }
+
+  function showNew(){
+    currentNumber = randNDigits(currentDigits);
+    render();
+    if(autoSpeak.checked){ speak(numberToReading(currentNumber)); }
+  }
+
+  // 初期表示
+  showNew();
+
+  // Buttons
+  nextBtn.addEventListener('click', showNew);
+  speakBtn.addEventListener('click', () => speak(numberToReading(currentNumber)));
+  toggleBtn.addEventListener('click', () => { hidden = !hidden; render(); });
+  resetBtn.addEventListener('click', () => { hidden=false; showNew(); });
+
+  // Auto mode
+  autoStart.addEventListener('click', () => {
+    const sec = Math.max(1, Number(intervalSec.value||2));
+    clearInterval(timer); timer = setInterval(showNew, sec*1000);
+    autoStart.classList.add('ok'); setTimeout(()=>autoStart.classList.remove('ok'),600);
+  });
+  autoStop.addEventListener('click', () => { clearInterval(timer); timer=null; autoStop.classList.add('warn'); setTimeout(()=>autoStop.classList.remove('warn'),600); });
+
+  // Keyboard shortcuts
+  window.addEventListener('keydown', (e) => {
+    if(e.key === ' '){ e.preventDefault(); showNew(); }
+    else if(e.key.toLowerCase() === 'h'){ hidden = !hidden; render(); }
+    else if(e.key.toLowerCase() === 'f'){
+      if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+      else document.exitFullscreen();
+    } else if(e.key.toLowerCase() === 'r'){ hidden=false; showNew(); }
+  });
+})();
+</script>
+</body>
+</html>
